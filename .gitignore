@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.vscode/
+
+# Database & Logs
+*.sqlite
+*.sqlite3
+**/db/*.sqlite
+logs/
+*.log
