@@ -1,87 +1,70 @@
+"""Слой данных (CRUD-операции с SQLite)."""
 import sqlite3
 import os
 from src.config import DB_PATH
 
-
 def get_connection():
+    """Возвращает новое соединение с БД SQLite."""
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
-
 def init_db():
+    """Инициализирует структуры таблиц базы данных."""
     conn = get_connection()
     cursor = conn.cursor()
-
-    # Таблица пользователей
-    cursor.execute('''
+    
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         login TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
+        role TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
-
-    # Таблица процессов (state и memory_used в соответствии с методичкой)
-    cursor.execute('''
+    )""")
+    
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS processes (
-        pid INTEGER PRIMARY KEY AUTOINCREMENT,
+        pid INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
-        state TEXT NOT NULL DEFAULT 'ready',
+        state TEXT NOT NULL,
         owner TEXT NOT NULL,
-        memory_used INTEGER NOT NULL,
+        memory_used INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
-
-    # Таблица файлов
-    cursor.execute('''
+    )""")
+    
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS files (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         path TEXT UNIQUE NOT NULL,
-        content TEXT,
+        content TEXT DEFAULT '',
         owner TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
+    )""")
+    
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS syscalls_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        syscall_name TEXT NOT NULL,
+        args TEXT,
+        user TEXT,
+        status TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )""")
 
-    # Таблица состояния памяти (Задание 3)
-    cursor.execute('''
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS memory_state (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         used INTEGER DEFAULT 0,
         limit_val INTEGER DEFAULT 1024
-    )
-    ''')
-
-    # Таблица журнала системных вызовов
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS syscalls_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        syscall_name TEXT NOT NULL,
-        arguments TEXT,
-        user TEXT NOT NULL,
-        status TEXT NOT NULL,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
-
-    # Тестовый администратор
-    cursor.execute('''
-    INSERT OR IGNORE INTO users (login, password_hash, role)
-    VALUES ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'admin')
-    ''')
+    )""")
 
     conn.commit()
     conn.close()
-    print("База данных успешно инициализирована.")
 
-
-def execute_insert(table: str, data: dict):
-    """Вставляет запись в таблицу. data — словарь (поле: значение)."""
+def execute_insert(table, data):
+    """Универсальная вставка записи."""
     keys = ", ".join(data.keys())
     placeholders = ", ".join(["?"] * len(data))
     sql = f"INSERT INTO {table} ({keys}) VALUES ({placeholders})"
@@ -93,9 +76,8 @@ def execute_insert(table: str, data: dict):
     conn.close()
     return last_id
 
-
-def execute_select(table: str, conditions: dict = None):
-    """Возвращает записи из таблицы. conditions — словарь (поле: значение)."""
+def execute_select(table, conditions=None):
+    """Универсальная выборка записей."""
     sql = f"SELECT * FROM {table}"
     params = ()
     if conditions:
@@ -109,9 +91,8 @@ def execute_select(table: str, conditions: dict = None):
     conn.close()
     return result
 
-
-def execute_update(table: str, data: dict, conditions: dict):
-    """Обновляет записи. data — что менять, conditions — по какому условию."""
+def execute_update(table, data, conditions):
+    """Универсальное обновление записей."""
     set_clause = ", ".join([f"{k} = ?" for k in data.keys()])
     where_clause = " AND ".join([f"{k} = ?" for k in conditions.keys()])
     sql = f"UPDATE {table} SET {set_clause} WHERE {where_clause}"
@@ -121,21 +102,20 @@ def execute_update(table: str, data: dict, conditions: dict):
     conn.commit()
     conn.close()
 
-
-def execute_delete(table: str, conditions: dict = None):
-    """Удаляет записи по условию. Если conditions не передан или пуст — очищает таблицу."""
+def execute_delete(table, conditions=None):
+    """Универсальное удаление записей."""
     conn = get_connection()
     cursor = conn.cursor()
-    if conditions:
+    if not conditions:
+        sql = f"DELETE FROM {table}"
+        cursor.execute(sql)
+    else:
         where_clause = " AND ".join([f"{k} = ?" for k in conditions.keys()])
         sql = f"DELETE FROM {table} WHERE {where_clause}"
         cursor.execute(sql, tuple(conditions.values()))
-    else:
-        sql = f"DELETE FROM {table}"
-        cursor.execute(sql)
     conn.commit()
     conn.close()
 
-
 if __name__ == "__main__":
     init_db()
+    print("[OK] База данных успешно инициализирована.")
