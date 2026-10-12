@@ -5,7 +5,9 @@ from src.config import DB_PATH
 
 def get_connection():
     """Возвращает новое соединение с БД SQLite."""
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    dir_path = os.path.dirname(DB_PATH)
+    if dir_path:
+        os.makedirs(dir_path, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -14,6 +16,16 @@ def init_db():
     """Инициализирует структуры таблиц базы данных."""
     conn = get_connection()
     cursor = conn.cursor()
+    
+    # Таблица ролей
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS roles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL
+    )""")
+    
+    # Заполнение базовыми ролями, если таблица пуста
+    cursor.execute("INSERT OR IGNORE INTO roles (name) VALUES ('admin'), ('user')")
     
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
